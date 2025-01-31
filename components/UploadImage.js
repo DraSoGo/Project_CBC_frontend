@@ -17,10 +17,11 @@ export default function UploadImage() {
     const formData = new FormData();
     formData.append("file", selectedFile);
 
-    const response = await fetch("http://localhost:8000/predict/", {
+    const response = await fetch("https://project-cbc-backend-c2co.onrender.com/predict/", {
       method: "POST",
       body: formData,
     });
+    
 
     const blob = await response.blob();
     setProcessedImage(URL.createObjectURL(blob));
