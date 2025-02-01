@@ -1,6 +1,7 @@
 import { useState } from "react";
 import styled from "styled-components";
 
+// 🎨 Styled Components
 const Container = styled.div`
   display: flex;
   flex-direction: column;
@@ -25,6 +26,7 @@ const Card = styled.div`
   box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
   max-width: 600px;
   width: 100%;
+  margin-bottom: 20px;
 `;
 
 const ButtonContainer = styled.div`
@@ -76,6 +78,12 @@ const DetectButton = styled.button`
     background: #218838;
     transform: scale(1.05);
   }
+
+  &:disabled {
+    background: gray;
+    cursor: not-allowed;
+    transform: none;
+  }
 `;
 
 const ImagePreview = styled.img`
@@ -85,30 +93,69 @@ const ImagePreview = styled.img`
   margin-top: 20px;
 `;
 
+const CellCountContainer = styled.div`
+  margin-top: 15px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 500px;
+`;
+
+const CellCountList = styled.ul`
+  list-style: none;
+  padding: 0;
+`;
+
+const CellCountItem = styled.li`
+  font-size: 1.1rem;
+  margin: 5px 0;
+  color: #f9f9f9;
+`;
+
 export default function UploadImage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [processedImage, setProcessedImage] = useState(null);
+  const [cellCounts, setCellCounts] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     setSelectedFile(file);
     setImagePreview(URL.createObjectURL(file));
+    setProcessedImage(null);
+    setCellCounts(null);
   };
 
   const handleUpload = async () => {
     if (!selectedFile) return;
 
+    setLoading(true);
     const formData = new FormData();
     formData.append("file", selectedFile);
 
-    const response = await fetch("http://localhost:8000/predict/", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const response = await fetch("https://6168-61-7-240-70.ngrok-free.app/predict/", {
+        method: "POST",
+        body: formData,
+      });
 
-    const blob = await response.blob();
-    setProcessedImage(URL.createObjectURL(blob));
+      if (!response.ok) {
+        console.error("Error uploading file");
+        return;
+      }
+
+      const data = await response.json();
+
+      // ✅ อัปเดต UI
+      setCellCounts(data.cell_counts);
+      setProcessedImage(`data:image/jpeg;base64,${data.image}`);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -116,7 +163,6 @@ export default function UploadImage() {
       <Card>
         <h2>🩸 Upload pictures for blood detection</h2>
 
-        {/* ปุ่ม Choose File และ Upload */}
         <ButtonContainer>
           <UploadButton htmlFor="file-upload">📂 Choose File</UploadButton>
           <HiddenInput
@@ -125,20 +171,37 @@ export default function UploadImage() {
             accept="image/*"
             onChange={handleFileChange}
           />
-          <DetectButton onClick={handleUpload}>🚀 Upload & Detect</DetectButton>
+          <DetectButton onClick={handleUpload} disabled={loading}>
+            🚀 {loading ? "Processing..." : "Upload & Detect"}
+          </DetectButton>
         </ButtonContainer>
 
         {/* แสดงภาพที่อัปโหลด */}
         {imagePreview && <ImagePreview src={imagePreview} alt="Uploaded" />}
       </Card>
-
-      {/* แสดงภาพที่ประมวลผล */}
+      
+      {/* แสดงภาพที่ประมวลผลแล้ว */}
       {processedImage && (
         <Card>
           <h3>🖼 Processed Image:</h3>
           <ImagePreview src={processedImage} alt="Processed" />
         </Card>
       )}
+
+      {/* แสดงข้อมูลเซลล์ที่ตรวจจับ */}
+      {cellCounts && (
+        <CellCountContainer>
+          <h3>🧪 Detected Blood Cells:</h3>
+          <CellCountList>
+            {Object.entries(cellCounts).map(([cellType, count]) => (
+              <CellCountItem key={cellType}>
+                {cellType}: <strong>{count}</strong>
+              </CellCountItem>
+            ))}
+          </CellCountList>
+        </CellCountContainer>
+      )}
+
     </Container>
   );
 }
